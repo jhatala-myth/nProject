@@ -1,0 +1,225 @@
+INSTALLATION & SETUP GUIDE
+==========================
+
+This guide will help you set up and run the Project Manager application.
+
+═══════════════════════════════════════════════════════════════
+METHOD 1: DOCKER (RECOMMENDED - EASIEST)
+═══════════════════════════════════════════════════════════════
+
+Prerequisites:
+--------------
+• Docker Desktop (Windows/Mac) or Docker Engine (Linux)
+• Docker Compose
+
+Step 1: Install Docker
+----------------------
+Windows/Mac: Download from https://www.docker.com/products/docker-desktop
+Linux: 
+  $ curl -fsSL https://get.docker.com -o get-docker.sh
+  $ sudo sh get-docker.sh
+
+Step 2: Extract Files
+----------------------
+Extract all the project files to a folder, for example:
+  C:\project-manager\  (Windows)
+  ~/project-manager/   (Mac/Linux)
+
+Step 3: Start the Application
+------------------------------
+Open terminal/command prompt in the project folder:
+
+Quick Start (Linux/Mac):
+  $ chmod +x start.sh
+  $ ./start.sh
+
+Manual Start (All platforms):
+  $ docker-compose up -d
+
+Step 4: Access the Application
+-------------------------------
+Open your browser and go to:
+  http://localhost:5000
+
+Step 5: Stop the Application
+-----------------------------
+  $ docker-compose down
+
+═══════════════════════════════════════════════════════════════
+METHOD 2: LOCAL PYTHON INSTALLATION
+═══════════════════════════════════════════════════════════════
+
+Prerequisites:
+--------------
+• Python 3.11 or higher
+• pip (Python package manager)
+
+Step 1: Verify Python Installation
+-----------------------------------
+  $ python --version
+  (Should show Python 3.11 or higher)
+
+Step 2: Extract Files
+----------------------
+Extract all files to a folder
+
+Step 3: Create Virtual Environment
+-----------------------------------
+Windows:
+  $ python -m venv venv
+  $ venv\Scripts\activate
+
+Mac/Linux:
+  $ python3 -m venv venv
+  $ source venv/bin/activate
+
+Step 4: Install Dependencies
+-----------------------------
+  $ pip install -r requirements.txt
+
+Step 5: Run the Application
+----------------------------
+  $ python app.py
+
+Step 6: Access the Application
+-------------------------------
+Open your browser and go to:
+  http://localhost:5000
+
+Step 7: Stop the Application
+-----------------------------
+Press Ctrl+C in the terminal
+
+═══════════════════════════════════════════════════════════════
+TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════
+
+Problem: Port 5000 already in use
+Solution: 
+  Option A - Change port in docker-compose.yml:
+    ports:
+      - "8000:5000"  # Use port 8000 instead
+    Then access: http://localhost:8000
+  
+  Option B - Stop other services using port 5000
+
+Problem: Docker container won't start
+Solution:
+  1. Check logs: docker-compose logs web
+  2. Rebuild: docker-compose down && docker-compose up --build -d
+  3. Check Docker is running: docker ps
+
+Problem: Database locked error
+Solution:
+  Stop all instances: docker-compose down
+  Then restart: docker-compose up -d
+
+Problem: Permission denied on start.sh
+Solution:
+  Make it executable: chmod +x start.sh
+
+Problem: Cannot install Python packages
+Solution:
+  1. Update pip: pip install --upgrade pip
+  2. Use Python 3.11+: python3.11 -m pip install -r requirements.txt
+
+Problem: Page won't load
+Solution:
+  1. Check if app is running: docker-compose ps
+  2. Check logs: docker-compose logs -f
+  3. Try accessing: http://127.0.0.1:5000
+
+═══════════════════════════════════════════════════════════════
+USEFUL COMMANDS
+═══════════════════════════════════════════════════════════════
+
+Docker Commands:
+----------------
+Start application:       docker-compose up -d
+Stop application:        docker-compose down
+View logs:              docker-compose logs -f
+Restart application:     docker-compose restart
+Rebuild container:       docker-compose up --build -d
+Check status:           docker-compose ps
+Enter container:        docker-compose exec web sh
+
+Database Commands:
+------------------
+Access database (Docker):
+  $ docker-compose exec web sh
+  $ sqlite3 /app/data/projects.db
+
+Access database (Local):
+  $ sqlite3 projects.db
+
+View tables:
+  sqlite> .tables
+  sqlite> SELECT * FROM projects;
+  sqlite> .quit
+
+═══════════════════════════════════════════════════════════════
+DATA PERSISTENCE
+═══════════════════════════════════════════════════════════════
+
+Docker Installation:
+  Database location: ./data/projects.db
+  This folder is mapped from your host machine, so data persists
+  even when containers are stopped or removed.
+
+Local Installation:
+  Database location: ./projects.db
+  Located in the same folder as app.py
+
+Backup Database:
+  Simply copy the projects.db file to a safe location
+
+Restore Database:
+  Replace projects.db with your backup file
+
+═══════════════════════════════════════════════════════════════
+CUSTOMIZATION
+═══════════════════════════════════════════════════════════════
+
+Change Port:
+  Edit docker-compose.yml or set environment variable
+
+Change Database Location:
+  Edit DATABASE path in app.py
+
+Modify Styling:
+  Edit templates/index.html and templates/project_detail.html
+  Bootstrap classes can be customized
+
+Add Features:
+  Edit app.py to add new routes and functionality
+
+═══════════════════════════════════════════════════════════════
+SECURITY NOTES
+═══════════════════════════════════════════════════════════════
+
+⚠️ This application is designed for LOCAL USE or DEVELOPMENT only.
+
+For production deployment, you should:
+  • Add user authentication
+  • Use environment variables for configuration
+  • Set DEBUG=False in Flask
+  • Use a production WSGI server (gunicorn, uwsgi)
+  • Add HTTPS/SSL
+  • Implement proper security headers
+  • Add input validation and sanitization
+  • Use a more robust database (PostgreSQL, MySQL)
+
+═══════════════════════════════════════════════════════════════
+NEXT STEPS
+═══════════════════════════════════════════════════════════════
+
+1. Start the application using your preferred method
+2. Create your first project
+3. Add tasks and subtasks
+4. Try the commenting feature
+5. Experiment with task status updates
+6. Check the README.md for more details
+
+═══════════════════════════════════════════════════════════════
+
+Happy project managing! 🚀

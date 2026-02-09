@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: project_manager
+    ports:
+      - "8081:5000"
+    volumes:
+      - ./data:/app/data
+      - ./app.py:/app/app.py
+      - ./templates:/app/templates
+    environment:
+      - FLASK_ENV=development
+      - DATABASE=/app/data/projects.db
+    restart: unless-stopped

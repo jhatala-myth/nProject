@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ project.name }} - Project Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        .task-item {
+            border-left: 3px solid #007bff;
+            transition: background-color 0.2s;
+        }
+        .task-item:hover {
+            background-color: #f8f9fa;
+        }
+        .subtask-item {
+            border-left: 3px solid #6c757d;
+            margin-left: 2rem;
+        }
+        .comment-box {
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .status-pending { background-color: #ffc107; }
+        .status-in_progress { background-color: #0dcaf0; }
+        .status-completed { background-color: #198754; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-primary mb-4">
+        <div class="container-fluid">
+            <a href="{{ url_for('index') }}" class="navbar-brand">
+                <i class="bi bi-arrow-left"></i> Back to Projects
+            </a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Project Header -->
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <h2>
+                    {% if project.icon_data %}
+                        <img src="data:image/png;base64,{{ project.icon_data }}" alt="Project Icon" style="width: 32px; height: 32px; margin-right: 10px; vertical-align: middle; image-rendering: pixelated;">
+                    {% else %}
+                        <i class="bi bi-folder-open text-primary"></i>
+                    {% endif %}
+                    {{ project.name }}
+                </h2>
+                <p class="text-muted">{{ project.description or 'No description' }}</p>
+                <span class="badge bg-success">{{ project.status }}</span>
+                <small class="text-muted ms-2">Created: {{ project.created_at.split(' ')[0] }}</small>
+            </div>
+            <div class="col-md-4 text-end">
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTaskModal">
+                    <i class="bi bi-plus-circle"></i> Add Task
+                </button>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Tasks Section -->
+            <div class="col-md-8">
+                <h4 class="mb-3">Tasks</h4>
+                {% if tasks %}
+                    {% for task in tasks %}
+                    <div class="card mb-3 task-item">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h5 class="card-title">
+                                        <i class="bi bi-check-circle"></i> {{ task.name }}
+                                        <span class="badge status-{{ task.status }} ms-2">{{ task.status.replace('_', ' ').title() }}</span>
+                                    </h5>
+                                    <p class="card-text text-muted small">{{ task.description or 'No description' }}</p>
+                                    <small class="text-muted">Created: {{ task.created_at.split(' ')[0] }}</small>
+                                </div>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-secondary" onclick="loadSubtasks({{ task.id }})" 
+                                            data-bs-toggle="collapse" data-bs-target="#subtasks-{{ task.id }}">
+                                        <i class="bi bi-list-nested"></i>
+                                    </button>
+                                    <button class="btn btn-outline-primary" onclick="showAddSubtask({{ task.id }})">
+                                        <i class="bi bi-plus"></i>
+                                    </button>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-info dropdown-toggle" data-bs-toggle="dropdown">
+                                            <i class="bi bi-gear"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" href="#" onclick="updateTaskStatus({{ task.id }}, 'pending')">Mark Pending</a></li>
+                                            <li><a class="dropdown-item" href="#" onclick="updateTaskStatus({{ task.id }}, 'in_progress')">Mark In Progress</a></li>
+                                            <li><a class="dropdown-item" href="#" onclick="updateTaskStatus({{ task.id }}, 'completed')">Mark Completed</a></li>
+                                        </ul>
+                                    </div>
+                                    <button class="btn btn-outline-danger" onclick="deleteTask({{ task.id }})">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Subtasks Container -->
+                            <div class="collapse mt-3" id="subtasks-{{ task.id }}">
+                                <div id="subtasks-content-{{ task.id }}">
+                                    <div class="text-center py-2">
+                                        <div class="spinner-border spinner-border-sm" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> No tasks yet. Add your first task to get started!
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Comments Section -->
+            <div class="col-md-4">
+                <h4 class="mb-3">Project Comments</h4>
+                
+                <!-- Add Comment Form -->
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <form id="projectCommentForm">
+                            <input type="hidden" name="entity_type" value="project">
+                            <input type="hidden" name="entity_id" value="{{ project.id }}">
+                            <div class="mb-2">
+                                <input type="text" class="form-control form-control-sm" name="author" placeholder="Your name" required>
+                            </div>
+                            <div class="mb-2">
+                                <textarea class="form-control form-control-sm" name="content" rows="2" placeholder="Add a comment..." required></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-sm w-100">
+                                <i class="bi bi-send"></i> Post Comment
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Comments List -->
+                <div id="projectComments">
+                    {% for comment in project_comments %}
+                    <div class="comment-box p-3 mb-2">
+                        <strong>{{ comment.author }}</strong>
+                        <small class="text-muted d-block">{{ comment.created_at }}</small>
+                        <p class="mb-0 mt-1">{{ comment.content }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Task Modal -->
+    <div class="modal fade" id="addTaskModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New Task</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" action="{{ url_for('add_task') }}">
+                    <input type="hidden" name="project_id" value="{{ project.id }}">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="taskName" class="form-label">Task Name *</label>
+                            <input type="text" class="form-control" id="taskName" name="name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="taskDescription" class="form-label">Description</label>
+                            <textarea class="form-control" id="taskDescription" name="description" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Add Task</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Subtask Modal -->
+    <div class="modal fade" id="addSubtaskModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Subtask</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" action="{{ url_for('add_task') }}">
+                    <input type="hidden" name="project_id" value="{{ project.id }}">
+                    <input type="hidden" name="parent_task_id" id="parentTaskId">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="subtaskName" class="form-label">Subtask Name *</label>
+                            <input type="text" class="form-control" id="subtaskName" name="name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="subtaskDescription" class="form-label">Description</label>
+                            <textarea class="form-control" id="subtaskDescription" name="description" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Add Subtask</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Task Form (hidden) -->
+    <form id="deleteTaskForm" method="POST" style="display: none;"></form>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let loadedSubtasks = new Set();
+
+        function loadSubtasks(taskId) {
+            if (loadedSubtasks.has(taskId)) return;
+            
+            fetch(`/task/${taskId}/subtasks`)
+                .then(response => response.json())
+                .then(data => {
+                    loadedSubtasks.add(taskId);
+                    const container = document.getElementById(`subtasks-content-${taskId}`);
+                    let html = '<h6 class="mt-2 mb-2">Subtasks:</h6>';
+                    
+                    if (data.subtasks.length > 0) {
+                        data.subtasks.forEach(subtask => {
+                            html += `
+                                <div class="card mb-2 subtask-item">
+                                    <div class="card-body py-2">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <strong>${subtask.name}</strong>
+                                                <span class="badge status-${subtask.status} ms-2">${subtask.status.replace('_', ' ')}</span>
+                                                <br><small class="text-muted">${subtask.description || ''}</small>
+                                            </div>
+                                            <button class="btn btn-sm btn-outline-danger" onclick="deleteTask(${subtask.id})">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    } else {
+                        html += '<p class="text-muted small">No subtasks yet</p>';
+                    }
+                    
+                    html += '<h6 class="mt-3 mb-2">Comments:</h6>';
+                    html += `
+                        <form class="task-comment-form mb-2" data-task-id="${taskId}">
+                            <input type="hidden" name="entity_type" value="task">
+                            <input type="hidden" name="entity_id" value="${taskId}">
+                            <input type="text" class="form-control form-control-sm mb-1" name="author" placeholder="Your name" required>
+                            <textarea class="form-control form-control-sm mb-1" name="content" rows="2" placeholder="Add comment..." required></textarea>
+                            <button type="submit" class="btn btn-sm btn-primary">Post</button>
+                        </form>
+                    `;
+                    
+                    if (data.comments.length > 0) {
+                        data.comments.forEach(comment => {
+                            html += `
+                                <div class="comment-box p-2 mb-1">
+                                    <strong>${comment.author}</strong>
+                                    <small class="text-muted d-block">${comment.created_at}</small>
+                                    <p class="mb-0 small">${comment.content}</p>
+                                </div>
+                            `;
+                        });
+                    }
+                    
+                    container.innerHTML = html;
+                    
+                    // Add event listeners to task comment forms
+                    container.querySelectorAll('.task-comment-form').forEach(form => {
+                        form.addEventListener('submit', handleTaskCommentSubmit);
+                    });
+                });
+        }
+
+        function showAddSubtask(taskId) {
+            document.getElementById('parentTaskId').value = taskId;
+            new bootstrap.Modal(document.getElementById('addSubtaskModal')).show();
+        }
+
+        function updateTaskStatus(taskId, status) {
+            const formData = new FormData();
+            formData.append('status', status);
+            
+            fetch(`/task/${taskId}/update-status`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                }
+            });
+        }
+
+        function deleteTask(taskId) {
+            if (confirm('Delete this task? This will also delete all subtasks.')) {
+                const form = document.getElementById('deleteTaskForm');
+                form.action = `/task/${taskId}/delete`;
+                form.submit();
+            }
+        }
+
+        // Handle project comment submission
+        document.getElementById('projectCommentForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            
+            fetch('/comment/add', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                }
+            });
+        });
+
+        function handleTaskCommentSubmit(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            
+            fetch('/comment/add', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const taskId = e.target.dataset.taskId;
+                    loadedSubtasks.delete(parseInt(taskId));
+                    loadSubtasks(parseInt(taskId));
+                }
+            });
+        }
+    </script>
+</body>
+</html>

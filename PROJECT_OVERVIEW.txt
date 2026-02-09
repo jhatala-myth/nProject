@@ -1,0 +1,121 @@
+PROJECT MANAGER APPLICATION - STRUCTURE
+========================================
+
+┌─────────────────────────────────────────────────────────────┐
+│                    PROJECT MANAGER APP                       │
+│                  (Flask + Bootstrap + Docker)                │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│  FILE STRUCTURE                                              │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  project-manager/                                            │
+│  ├── app.py                  ← Flask application & routes    │
+│  ├── requirements.txt        ← Python dependencies           │
+│  ├── Dockerfile              ← Container configuration       │
+│  ├── docker-compose.yml      ← Orchestration config          │
+│  ├── start.sh                ← Quick start script            │
+│  ├── README.md               ← Documentation                 │
+│  ├── .dockerignore           ← Docker ignore rules           │
+│  ├── .gitignore              ← Git ignore rules              │
+│  ├── templates/                                              │
+│  │   ├── index.html          ← Project list page             │
+│  │   └── project_detail.html ← Project details & tasks       │
+│  └── data/                   ← SQLite database (created)     │
+│      └── projects.db                                         │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│  DATABASE SCHEMA                                             │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌─────────────┐         ┌──────────────┐                   │
+│  │  PROJECTS   │         │    TASKS     │                   │
+│  ├─────────────┤         ├──────────────┤                   │
+│  │ id          │◄────┐   │ id           │◄────┐             │
+│  │ name        │     └───│ project_id   │     │             │
+│  │ description │         │ parent_task_id├────┘ (self-ref)  │
+│  │ status      │         │ name         │                   │
+│  │ created_at  │         │ description  │                   │
+│  └─────────────┘         │ status       │                   │
+│                          │ created_at   │                   │
+│                          └──────────────┘                   │
+│                                                              │
+│           ┌──────────────────────────────┐                  │
+│           │       COMMENTS               │                  │
+│           ├──────────────────────────────┤                  │
+│           │ id                           │                  │
+│           │ entity_type (project/task)   │                  │
+│           │ entity_id                    │                  │
+│           │ content                      │                  │
+│           │ author                       │                  │
+│           │ created_at                   │                  │
+│           └──────────────────────────────┘                  │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│  FEATURES                                                    │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ✅ Create, view, and delete projects                        │
+│  ✅ Add tasks to projects                                    │
+│  ✅ Create subtasks (nested tasks)                           │
+│  ✅ Task status management (Pending/In Progress/Completed)   │
+│  ✅ Comments on projects and tasks                           │
+│  ✅ Responsive Bootstrap 5 UI                                │
+│  ✅ Docker containerization                                  │
+│  ✅ SQLite database                                          │
+│  ✅ AJAX for dynamic content loading                         │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│  QUICK START                                                 │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  Option 1: Docker (Recommended)                              │
+│  ──────────────────────────                                  │
+│  $ ./start.sh                                                │
+│  OR                                                          │
+│  $ docker-compose up -d                                      │
+│                                                              │
+│  Option 2: Local Python                                      │
+│  ───────────────────────                                     │
+│  $ python -m venv venv                                       │
+│  $ source venv/bin/activate                                 │
+│  $ pip install -r requirements.txt                           │
+│  $ python app.py                                             │
+│                                                              │
+│  Then visit: http://localhost:5000                           │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│  WORKFLOW EXAMPLE                                            │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  1. Create Project: "Website Redesign"                       │
+│     └─ Add Task: "Design Homepage"                           │
+│        ├─ Add Subtask: "Create wireframes"                   │
+│        ├─ Add Subtask: "Design mockups"                      │
+│        └─ Add Comment: "Use blue color scheme"               │
+│     └─ Add Task: "Develop Frontend"                          │
+│        ├─ Add Subtask: "HTML structure"                      │
+│        └─ Add Subtask: "CSS styling"                         │
+│                                                              │
+│  2. Update task status as work progresses                    │
+│  3. Add comments for collaboration                           │
+│  4. Mark tasks complete when done                            │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+TECHNOLOGY STACK
+═════════════════
+Backend:  Flask 3.0
+Frontend: Bootstrap 5.3, Bootstrap Icons, JavaScript
+Database: SQLite 3
+Container: Docker, Docker Compose
+Language: Python 3.11
