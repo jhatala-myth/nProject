@@ -55,8 +55,23 @@ def index():
     """Display all projects"""
     db = get_db()
     projects = db.execute('SELECT * FROM projects ORDER BY created_at DESC').fetchall()
+    
+    # Get task statistics for each project
+    project_stats = {}
+    for project in projects:
+        stats = db.execute('''
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
+                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed
+            FROM tasks 
+            WHERE project_id = ?
+        ''', (project['id'],)).fetchone()
+        project_stats[project['id']] = stats
+    
     db.close()
-    return render_template('index.html', projects=projects)
+    return render_template('index.html', projects=projects, project_stats=project_stats)
 
 @app.route('/project/<int:project_id>')
 def project_detail(project_id):
@@ -132,6 +147,36 @@ def delete_project(project_id):
     db.close()
     return redirect(url_for('index'))
 
+@app.route('/project/<int:project_id>/update', methods=['POST'])
+def update_project(project_id):
+    """Update project details"""
+    name = request.form.get('name')
+    description = request.form.get('description', '')
+    icon_data = None
+    
+    if name:
+        db = get_db()
+        
+        # Handle new icon upload if provided
+        if 'icon' in request.files:
+            icon_file = request.files['icon']
+            if icon_file and icon_file.filename:
+                icon_bytes = icon_file.read()
+                icon_data = base64.b64encode(icon_bytes).decode('utf-8')
+                db.execute('UPDATE projects SET name = ?, description = ?, icon_data = ? WHERE id = ?', 
+                          (name, description, icon_data, project_id))
+            else:
+                db.execute('UPDATE projects SET name = ?, description = ? WHERE id = ?', 
+                          (name, description, project_id))
+        else:
+            db.execute('UPDATE projects SET name = ?, description = ? WHERE id = ?', 
+                      (name, description, project_id))
+        
+        db.commit()
+        db.close()
+    
+    return redirect(url_for('project_detail', project_id=project_id))
+
 @app.route('/project/<int:project_id>/task-count')
 def get_task_count(project_id):
     """Get task count for a project"""
@@ -196,6 +241,27 @@ def update_task_status(task_id):
         return jsonify({'success': True})
     
     return jsonify({'success': False}), 400
+
+@app.route('/task/<int:task_id>/update', methods=['POST'])
+def update_task(task_id):
+    """Update task name and description"""
+    name = request.form.get('name')
+    description = request.form.get('description', '')
+    
+    if name:
+        db = get_db()
+        task = db.execute('SELECT project_id FROM tasks WHERE id = ?', (task_id,)).fetchone()
+        project_id = task['project_id'] if task else None
+        
+        db.execute('UPDATE tasks SET name = ?, description = ? WHERE id = ?', 
+                  (name, description, task_id))
+        db.commit()
+        db.close()
+        
+        if project_id:
+            return redirect(url_for('project_detail', project_id=project_id))
+    
+    return redirect(url_for('index'))
 
 @app.route('/task/<int:task_id>/delete', methods=['POST'])
 def delete_task(task_id):
