@@ -5,7 +5,12 @@ import os
 import base64
 
 app = Flask(__name__)
-app.config['DATABASE'] = 'projects.db'
+
+# Ensure data directory exists
+DATA_DIR = '/app/data' if os.path.exists('/app') else './data'
+os.makedirs(DATA_DIR, exist_ok=True)
+
+app.config['DATABASE'] = os.path.join(DATA_DIR, 'projects.db')
 
 def get_db():
     """Get database connection"""

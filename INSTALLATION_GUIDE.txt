@@ -167,14 +167,14 @@ Docker Installation:
   even when containers are stopped or removed.
 
 Local Installation:
-  Database location: ./projects.db
-  Located in the same folder as app.py
+  Database location: ./data/projects.db
+  Located in the data subfolder of your project directory
 
 Backup Database:
-  Simply copy the projects.db file to a safe location
+  Simply copy the data/projects.db file to a safe location
 
 Restore Database:
-  Replace projects.db with your backup file
+  Replace data/projects.db with your backup file
 
 ═══════════════════════════════════════════════════════════════
 CUSTOMIZATION

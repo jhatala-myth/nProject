@@ -117,9 +117,11 @@ The application uses SQLite with the following schema:
 - **tasks**: Stores tasks and subtasks (self-referencing for subtasks)
 - **comments**: Stores comments for projects and tasks
 
-The database file is stored in:
-- Docker: `./data/projects.db`
-- Local: `./projects.db`
+The database file `projects.db` is automatically stored in:
+- **Docker**: `./data/projects.db` (persisted on your host machine)
+- **Local**: `./data/projects.db` (created in project directory)
+
+The `data` directory is automatically created if it doesn't exist.
 
 ## Development
 
