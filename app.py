@@ -3,6 +3,7 @@ from datetime import datetime
 import sqlite3
 import os
 import base64
+import markdown
 
 app = Flask(__name__)
 
@@ -11,6 +12,18 @@ DATA_DIR = '/app/data' if os.path.exists('/app') else './data'
 os.makedirs(DATA_DIR, exist_ok=True)
 
 app.config['DATABASE'] = os.path.join(DATA_DIR, 'projects.db')
+
+# Add markdown filter to Jinja
+@app.template_filter('markdown')
+def markdown_filter(text):
+    """Convert markdown text to HTML"""
+    if not text:
+        return ''
+    return markdown.markdown(
+        text,
+        extensions=['fenced_code', 'tables', 'sane_lists'],
+        output_format='html5'
+    )
 
 def get_db():
     """Get database connection"""
@@ -282,6 +295,57 @@ def delete_task(task_id):
     if project_id:
         return redirect(url_for('project_detail', project_id=project_id))
     return redirect(url_for('index'))
+
+@app.route('/comment/<int:comment_id>')
+def get_comment(comment_id):
+    """Get a single comment's content"""
+    db = get_db()
+    comment = db.execute('SELECT * FROM comments WHERE id = ?', (comment_id,)).fetchone()
+    db.close()
+    
+    if comment:
+        return jsonify({
+            'id': comment['id'],
+            'content': comment['content'],
+            'author': comment['author'],
+            'created_at': comment['created_at'],
+            'entity_type': comment['entity_type'],
+            'entity_id': comment['entity_id']
+        })
+    return jsonify({'error': 'Comment not found'}), 404
+
+@app.route('/comment/<int:comment_id>/update', methods=['POST'])
+def update_comment(comment_id):
+    """Update a comment"""
+    content = request.form.get('content')
+    author = request.form.get('author')
+    
+    if content and author:
+        db = get_db()
+        db.execute('UPDATE comments SET content = ?, author = ? WHERE id = ?', 
+                  (content, author, comment_id))
+        db.commit()
+        db.close()
+        return jsonify({'success': True})
+    
+    return jsonify({'success': False}), 400
+
+@app.route('/comment/<int:comment_id>/delete', methods=['POST'])
+def delete_comment(comment_id):
+    """Delete a comment"""
+    db = get_db()
+    comment = db.execute('SELECT entity_type, entity_id FROM comments WHERE id = ?', 
+                        (comment_id,)).fetchone()
+    
+    if comment:
+        db.execute('DELETE FROM comments WHERE id = ?', (comment_id,))
+        db.commit()
+        db.close()
+        return jsonify({'success': True, 'entity_type': comment['entity_type'], 
+                       'entity_id': comment['entity_id']})
+    
+    db.close()
+    return jsonify({'success': False}), 404
 
 @app.route('/comment/add', methods=['POST'])
 def add_comment():
