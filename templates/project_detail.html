@@ -868,56 +868,8 @@
                     const container = document.getElementById(`subtasks-content-${taskId}`);
                     let html = '';
                     
-                    if (data.subtasks.length > 0) {
-                        html += '<div class="task-subtasks-section">';
-                        data.subtasks.forEach(subtask => {
-                            html += `
-                                <div class="subtask-bar" data-subtask-id="${subtask.id}">
-                                    <div class="subtask-header" onclick="toggleSubtask(${subtask.id})">
-                                        <div class="subtask-title">
-                                            ${escapeHtml(subtask.name)}
-                                            <span class="badge status-${subtask.status} ms-2">${subtask.status.replace('_', ' ')}</span>
-                                        </div>
-                                        <div style="display: flex; align-items: center;">
-                                            <div class="subtask-actions">
-                                                <button class="btn btn-sm btn-outline-secondary" 
-                                                        onclick="event.stopPropagation(); editSubtask(${subtask.id})"
-                                                        title="Edit subtask">
-                                                    <i class="bi bi-pencil"></i>
-                                                </button>
-                                                <div class="btn-group btn-group-sm">
-                                                    <button class="btn btn-outline-info dropdown-toggle" 
-                                                            onclick="event.stopPropagation();"
-                                                            data-bs-toggle="dropdown">
-                                                        <i class="bi bi-gear"></i>
-                                                    </button>
-                                                    <ul class="dropdown-menu">
-                                                        <li><a class="dropdown-item" href="#" onclick="updateTaskStatus(${subtask.id}, 'pending')">Mark Pending</a></li>
-                                                        <li><a class="dropdown-item" href="#" onclick="updateTaskStatus(${subtask.id}, 'in_progress')">Mark In Progress</a></li>
-                                                        <li><a class="dropdown-item" href="#" onclick="updateTaskStatus(${subtask.id}, 'completed')">Mark Completed</a></li>
-                                                    </ul>
-                                                </div>
-                                                <button class="btn btn-sm btn-outline-danger" 
-                                                        onclick="event.stopPropagation(); deleteTask(${subtask.id})"
-                                                        title="Delete subtask">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
-                                            </div>
-                                            <i class="bi bi-chevron-right subtask-expand-icon"></i>
-                                        </div>
-                                    </div>
-                                    <div class="subtask-content" id="subtask-content-${subtask.id}">
-                                        ${subtask.description ? `<div class="formatted-text small">${formatMarkdown(subtask.description)}</div>` : '<p class="text-muted small">No description</p>'}
-                                    </div>
-                                </div>
-                            `;
-                        });
-                        html += '</div>';
-                    } else {
-                        html += '<p class="text-muted small">No subtasks yet</p>';
-                    }
-                    
-                    html += '<h6 class="mt-3 mb-2">Comments:</h6>';
+                    // Only show comments section (subtasks are already displayed inline)
+                    html += '<h6 class="mb-2">Comments:</h6>';
                     html += `
                         <form class="task-comment-form mb-2" data-task-id="${taskId}">
                             <input type="hidden" name="entity_type" value="task">
@@ -985,40 +937,6 @@
         function toggleSubtaskInline(subtaskId) {
             const subtaskBar = document.querySelector(`.subtask-bar[data-subtask-id="${subtaskId}"]`);
             subtaskBar.classList.toggle('expanded');
-        }
-
-        async function editSubtask(subtaskId) {
-            try {
-                const response = await fetch(`/task/${subtaskId}/subtasks`);
-                const data = await response.json();
-                
-                // Get subtask data (it will be in the parent task's subtasks)
-                // For simplicity, we'll reload and edit via modal
-                // Create a modal similar to edit task
-                const subtaskData = data.subtasks ? data.subtasks.find(s => s.id === subtaskId) : null;
-                
-                // For now, redirect to standard edit (we can enhance this with a modal later)
-                const name = prompt('Subtask name:', subtaskData ? subtaskData.name : '');
-                if (!name) return;
-                
-                const description = prompt('Description:', subtaskData ? subtaskData.description : '');
-                
-                const formData = new FormData();
-                formData.append('name', name);
-                formData.append('description', description || '');
-                
-                const updateResponse = await fetch(`/task/${subtaskId}/update`, {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                if (updateResponse.ok) {
-                    location.reload();
-                }
-            } catch (error) {
-                console.error('Error editing subtask:', error);
-                alert('Error editing subtask');
-            }
         }
 
         function showAddSubtask(taskId) {
