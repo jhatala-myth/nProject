@@ -4,6 +4,7 @@ import sqlite3
 import os
 import base64
 import markdown
+import re
 
 app = Flask(__name__)
 
@@ -24,6 +25,23 @@ def markdown_filter(text):
         extensions=['fenced_code', 'tables', 'sane_lists'],
         output_format='html5'
     )
+
+@app.template_filter('strip_markdown')
+def strip_markdown_filter(text):
+    """Strip markdown formatting for plain text preview"""
+    if not text:
+        return ''
+    import re
+    # Remove markdown formatting
+    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)  # Bold
+    text = re.sub(r'\*(.+?)\*', r'\1', text)      # Italic
+    text = re.sub(r'`(.+?)`', r'\1', text)        # Code
+    text = re.sub(r'\[(.+?)\]\(.+?\)', r'\1', text)  # Links
+    text = re.sub(r'^#+\s+', '', text, flags=re.MULTILINE)  # Headers
+    text = re.sub(r'^[-*+]\s+', '', text, flags=re.MULTILINE)  # Lists
+    text = re.sub(r'^\d+\.\s+', '', text, flags=re.MULTILINE)  # Numbered lists
+    text = re.sub(r'\n', ' ', text)  # Newlines to spaces
+    return text.strip()
 
 def get_db():
     """Get database connection"""
@@ -108,6 +126,27 @@ def project_detail(project_id):
         ORDER BY created_at DESC
     ''', (project_id,)).fetchall()
     
+    # Get subtasks for each task
+    task_subtasks = {}
+    for task in tasks:
+        subtasks = db.execute('''
+            SELECT * FROM tasks 
+            WHERE parent_task_id = ? 
+            ORDER BY created_at DESC
+        ''', (task['id'],)).fetchall()
+        task_subtasks[task['id']] = subtasks
+    
+    # Get last comment info for each task
+    task_last_comments = {}
+    for task in tasks:
+        last_comment = db.execute('''
+            SELECT * FROM comments 
+            WHERE entity_type = 'task' AND entity_id = ? 
+            ORDER BY created_at DESC LIMIT 1
+        ''', (task['id'],)).fetchone()
+        if last_comment:
+            task_last_comments[task['id']] = last_comment
+    
     # Get project comments
     project_comments = db.execute('''
         SELECT * FROM comments 
@@ -119,6 +158,8 @@ def project_detail(project_id):
     return render_template('project_detail.html', 
                          project=project, 
                          tasks=tasks,
+                         task_subtasks=task_subtasks,
+                         task_last_comments=task_last_comments,
                          project_comments=project_comments)
 
 @app.route('/project/add', methods=['POST'])
@@ -246,23 +287,9 @@ def get_subtasks(task_id):
         'comments': [dict(row) for row in comments]
     })
 
-@app.route('/task/<int:task_id>/update-status', methods=['POST'])
-def update_task_status(task_id):
-    """Update task status"""
-    status = request.form.get('status')
-    
-    if status in ['pending', 'in_progress', 'completed']:
-        db = get_db()
-        db.execute('UPDATE tasks SET status = ? WHERE id = ?', (status, task_id))
-        db.commit()
-        db.close()
-        return jsonify({'success': True})
-    
-    return jsonify({'success': False}), 400
-
 @app.route('/task/<int:task_id>/update', methods=['POST'])
 def update_task(task_id):
-    """Update task name and description"""
+    """Update task or subtask name and description"""
     name = request.form.get('name')
     description = request.form.get('description', '')
     
@@ -280,6 +307,20 @@ def update_task(task_id):
             return redirect(url_for('project_detail', project_id=project_id))
     
     return redirect(url_for('index'))
+
+@app.route('/task/<int:task_id>/update-status', methods=['POST'])
+def update_task_status(task_id):
+    """Update task or subtask status"""
+    status = request.form.get('status')
+    
+    if status in ['pending', 'in_progress', 'completed']:
+        db = get_db()
+        db.execute('UPDATE tasks SET status = ? WHERE id = ?', (status, task_id))
+        db.commit()
+        db.close()
+        return jsonify({'success': True})
+    
+    return jsonify({'success': False}), 400
 
 @app.route('/task/<int:task_id>/delete', methods=['POST'])
 def delete_task(task_id):

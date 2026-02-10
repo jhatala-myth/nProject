@@ -14,6 +14,83 @@
         .task-item:hover {
             background-color: #f8f9fa;
         }
+        .task-metadata {
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+        .task-subtasks-section {
+            margin-top: 12px;
+        }
+        .subtask-bar {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 8px 10px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .subtask-bar:hover {
+            background-color: #e9ecef;
+        }
+        .subtask-bar.expanded {
+            background-color: #fff;
+            border-color: #6c757d;
+        }
+        .subtask-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .subtask-title {
+            flex: 1;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        .subtask-actions {
+            display: flex;
+            gap: 4px;
+            margin-left: 8px;
+        }
+        .subtask-actions button {
+            opacity: 0.6;
+        }
+        .subtask-bar:hover .subtask-actions button {
+            opacity: 1;
+        }
+        .subtask-expand-icon {
+            transition: transform 0.2s;
+            font-size: 1rem;
+            color: #6c757d;
+            margin-left: 8px;
+        }
+        .subtask-bar.expanded .subtask-expand-icon {
+            transform: rotate(90deg);
+        }
+        .subtask-content {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #dee2e6;
+            display: none;
+        }
+        .subtask-bar.expanded .subtask-content {
+            display: block;
+        }
+        .task-last-comment {
+            margin-top: 8px;
+            padding: 8px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+        .task-last-comment-author {
+            font-weight: 600;
+            color: #495057;
+        }
+        .task-last-comment-text {
+            color: #6c757d;
+            font-style: italic;
+        }
         .subtask-item {
             border-left: 3px solid #6c757d;
             margin-left: 2rem;
@@ -219,7 +296,75 @@
                                     {% else %}
                                     <p class="card-text text-muted small">No description</p>
                                     {% endif %}
-                                    <small class="text-muted">Created: {{ task.created_at.split(' ')[0] }}</small>
+                                    <div class="task-metadata">
+                                        Created: {{ task.created_at.split(' ')[0] }}
+                                        {% if task.id in task_last_comments %}
+                                            {% set last_comment = task_last_comments[task.id] %}
+                                            | Last updated: {{ last_comment.created_at.split(' ')[0] }}
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <!-- Subtasks Section -->
+                                    {% if task.id in task_subtasks and task_subtasks[task.id] %}
+                                    <div class="task-subtasks-section">
+                                        <h6 class="mb-2 mt-2">Subtasks ({{ task_subtasks[task.id]|length }}):</h6>
+                                        {% for subtask in task_subtasks[task.id] %}
+                                        <div class="subtask-bar" data-subtask-id="{{ subtask.id }}">
+                                            <div class="subtask-header" onclick="toggleSubtaskInline({{ subtask.id }})">
+                                                <div class="subtask-title">
+                                                    {{ subtask.name }}
+                                                    <span class="badge status-{{ subtask.status }} ms-2">{{ subtask.status.replace('_', ' ').title() }}</span>
+                                                </div>
+                                                <div style="display: flex; align-items: center;">
+                                                    <div class="subtask-actions">
+                                                        <button class="btn btn-sm btn-outline-secondary" 
+                                                                data-bs-toggle="modal" 
+                                                                data-bs-target="#editSubtaskModal{{ subtask.id }}"
+                                                                onclick="event.stopPropagation()"
+                                                                title="Edit subtask">
+                                                            <i class="bi bi-pencil"></i>
+                                                        </button>
+                                                        <div class="btn-group btn-group-sm">
+                                                            <button class="btn btn-outline-info dropdown-toggle" 
+                                                                    onclick="event.stopPropagation();"
+                                                                    data-bs-toggle="dropdown">
+                                                                <i class="bi bi-gear"></i>
+                                                            </button>
+                                                            <ul class="dropdown-menu">
+                                                                <li><a class="dropdown-item" href="#" onclick="updateTaskStatus({{ subtask.id }}, 'pending')">Mark Pending</a></li>
+                                                                <li><a class="dropdown-item" href="#" onclick="updateTaskStatus({{ subtask.id }}, 'in_progress')">Mark In Progress</a></li>
+                                                                <li><a class="dropdown-item" href="#" onclick="updateTaskStatus({{ subtask.id }}, 'completed')">Mark Completed</a></li>
+                                                            </ul>
+                                                        </div>
+                                                        <button class="btn btn-sm btn-outline-danger" 
+                                                                onclick="event.stopPropagation(); deleteTask({{ subtask.id }})"
+                                                                title="Delete subtask">
+                                                            <i class="bi bi-trash"></i>
+                                                        </button>
+                                                    </div>
+                                                    <i class="bi bi-chevron-right subtask-expand-icon"></i>
+                                                </div>
+                                            </div>
+                                            <div class="subtask-content" id="subtask-content-{{ subtask.id }}">
+                                                {% if subtask.description %}
+                                                <div class="formatted-text small">{{ subtask.description | markdown | safe }}</div>
+                                                {% else %}
+                                                <p class="text-muted small">No description</p>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <!-- Last Comment Preview -->
+                                    {% if task.id in task_last_comments %}
+                                        {% set last_comment = task_last_comments[task.id] %}
+                                        <div class="task-last-comment">
+                                            <span class="task-last-comment-author">{{ last_comment.author }}:</span>
+                                            <span class="task-last-comment-text">{{ last_comment.content | strip_markdown | truncate(100) }}</span>
+                                        </div>
+                                    {% endif %}
                                 </div>
                                 <div class="btn-group btn-group-sm">
                                     <button class="btn btn-outline-secondary" onclick="loadSubtasks({{ task.id }})" 
@@ -301,7 +446,7 @@
                                     <strong>{{ comment.author }}</strong>
                                     <small class="text-muted ms-2">{{ comment.created_at.split(' ')[0] }}</small>
                                 </div>
-                                <div class="comment-title-preview">{{ comment.content[:80] }}{% if comment.content|length > 80 %}...{% endif %}</div>
+                                <div class="comment-title-preview">{{ comment.content | strip_markdown | truncate(80) }}</div>
                             </div>
                             <div class="comment-header-right">
                                 <div class="comment-actions">
@@ -440,6 +585,41 @@
             </div>
         </div>
     </div>
+    
+    <!-- Edit Subtask Modals for this task -->
+    {% if task.id in task_subtasks %}
+        {% for subtask in task_subtasks[task.id] %}
+        <div class="modal fade" id="editSubtaskModal{{ subtask.id }}" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Subtask</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form method="POST" action="{{ url_for('update_task', task_id=subtask.id) }}">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="editSubtaskName{{ subtask.id }}" class="form-label">Subtask Name *</label>
+                                <input type="text" class="form-control" id="editSubtaskName{{ subtask.id }}" name="name" value="{{ subtask.name }}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="editSubtaskDescription{{ subtask.id }}" class="form-label">Description</label>
+                                <textarea class="form-control" id="editSubtaskDescription{{ subtask.id }}" name="description" rows="4">{{ subtask.description or '' }}</textarea>
+                                <div class="format-help">
+                                    <strong>Formatting:</strong> **bold**, *italic*, [link](url), `code`, - list | Two enters = new paragraph
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% endif %}
     {% endfor %}
 
     <!-- Add Subtask Modal -->
@@ -524,6 +704,21 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        function stripMarkdown(text) {
+            if (!text) return '';
+            // Remove markdown formatting for preview
+            return text
+                .replace(/\*\*(.+?)\*\*/g, '$1')  // Bold
+                .replace(/\*(.+?)\*/g, '$1')      // Italic
+                .replace(/`(.+?)`/g, '$1')        // Code
+                .replace(/\[(.+?)\]\(.+?\)/g, '$1') // Links
+                .replace(/^#+\s+/gm, '')          // Headers
+                .replace(/^[-*+]\s+/gm, '')       // Lists
+                .replace(/^\d+\.\s+/gm, '')       // Numbered lists
+                .replace(/\n/g, ' ')              // Newlines to spaces
+                .trim();
         }
 
         function formatMarkdown(text) {
@@ -646,29 +841,53 @@
                 .then(data => {
                     loadedSubtasks.add(taskId);
                     const container = document.getElementById(`subtasks-content-${taskId}`);
-                    let html = '<h6 class="mt-2 mb-2">Subtasks:</h6>';
+                    let html = '';
                     
                     if (data.subtasks.length > 0) {
+                        html += '<div class="task-subtasks-section">';
                         data.subtasks.forEach(subtask => {
-                            const descriptionHtml = subtask.description ? 
-                                `<div class="formatted-text small">${formatMarkdown(subtask.description)}</div>` : '';
                             html += `
-                                <div class="card mb-2 subtask-item">
-                                    <div class="card-body py-2">
-                                        <div class="d-flex justify-content-between">
-                                            <div>
-                                                <strong>${escapeHtml(subtask.name)}</strong>
-                                                <span class="badge status-${subtask.status} ms-2">${subtask.status.replace('_', ' ')}</span>
-                                                ${descriptionHtml}
-                                            </div>
-                                            <button class="btn btn-sm btn-outline-danger" onclick="deleteTask(${subtask.id})">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
+                                <div class="subtask-bar" data-subtask-id="${subtask.id}">
+                                    <div class="subtask-header" onclick="toggleSubtask(${subtask.id})">
+                                        <div class="subtask-title">
+                                            ${escapeHtml(subtask.name)}
+                                            <span class="badge status-${subtask.status} ms-2">${subtask.status.replace('_', ' ')}</span>
                                         </div>
+                                        <div style="display: flex; align-items: center;">
+                                            <div class="subtask-actions">
+                                                <button class="btn btn-sm btn-outline-secondary" 
+                                                        onclick="event.stopPropagation(); editSubtask(${subtask.id})"
+                                                        title="Edit subtask">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <div class="btn-group btn-group-sm">
+                                                    <button class="btn btn-outline-info dropdown-toggle" 
+                                                            onclick="event.stopPropagation();"
+                                                            data-bs-toggle="dropdown">
+                                                        <i class="bi bi-gear"></i>
+                                                    </button>
+                                                    <ul class="dropdown-menu">
+                                                        <li><a class="dropdown-item" href="#" onclick="updateTaskStatus(${subtask.id}, 'pending')">Mark Pending</a></li>
+                                                        <li><a class="dropdown-item" href="#" onclick="updateTaskStatus(${subtask.id}, 'in_progress')">Mark In Progress</a></li>
+                                                        <li><a class="dropdown-item" href="#" onclick="updateTaskStatus(${subtask.id}, 'completed')">Mark Completed</a></li>
+                                                    </ul>
+                                                </div>
+                                                <button class="btn btn-sm btn-outline-danger" 
+                                                        onclick="event.stopPropagation(); deleteTask(${subtask.id})"
+                                                        title="Delete subtask">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                            <i class="bi bi-chevron-right subtask-expand-icon"></i>
+                                        </div>
+                                    </div>
+                                    <div class="subtask-content" id="subtask-content-${subtask.id}">
+                                        ${subtask.description ? `<div class="formatted-text small">${formatMarkdown(subtask.description)}</div>` : '<p class="text-muted small">No description</p>'}
                                     </div>
                                 </div>
                             `;
                         });
+                        html += '</div>';
                     } else {
                         html += '<p class="text-muted small">No subtasks yet</p>';
                     }
@@ -686,7 +905,8 @@
                     
                     if (data.comments.length > 0) {
                         data.comments.forEach(comment => {
-                            const preview = comment.content.substring(0, 80) + (comment.content.length > 80 ? '...' : '');
+                            const plainText = stripMarkdown(comment.content);
+                            const preview = plainText.substring(0, 80) + (plainText.length > 80 ? '...' : '');
                             html += `
                                 <div class="comment-bar" data-comment-id="${comment.id}">
                                     <div class="comment-header" onclick="toggleComment(${comment.id})">
@@ -730,6 +950,50 @@
                         form.addEventListener('submit', handleTaskCommentSubmit);
                     });
                 });
+        }
+
+        function toggleSubtask(subtaskId) {
+            const subtaskBar = document.querySelector(`.subtask-bar[data-subtask-id="${subtaskId}"]`);
+            subtaskBar.classList.toggle('expanded');
+        }
+
+        function toggleSubtaskInline(subtaskId) {
+            const subtaskBar = document.querySelector(`.subtask-bar[data-subtask-id="${subtaskId}"]`);
+            subtaskBar.classList.toggle('expanded');
+        }
+
+        async function editSubtask(subtaskId) {
+            try {
+                const response = await fetch(`/task/${subtaskId}/subtasks`);
+                const data = await response.json();
+                
+                // Get subtask data (it will be in the parent task's subtasks)
+                // For simplicity, we'll reload and edit via modal
+                // Create a modal similar to edit task
+                const subtaskData = data.subtasks ? data.subtasks.find(s => s.id === subtaskId) : null;
+                
+                // For now, redirect to standard edit (we can enhance this with a modal later)
+                const name = prompt('Subtask name:', subtaskData ? subtaskData.name : '');
+                if (!name) return;
+                
+                const description = prompt('Description:', subtaskData ? subtaskData.description : '');
+                
+                const formData = new FormData();
+                formData.append('name', name);
+                formData.append('description', description || '');
+                
+                const updateResponse = await fetch(`/task/${subtaskId}/update`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (updateResponse.ok) {
+                    location.reload();
+                }
+            } catch (error) {
+                console.error('Error editing subtask:', error);
+                alert('Error editing subtask');
+            }
         }
 
         function showAddSubtask(taskId) {
