@@ -92,7 +92,7 @@ def index():
     db = get_db()
     projects = db.execute('SELECT * FROM projects ORDER BY created_at DESC').fetchall()
     
-    # Get task statistics for each project
+    # Get task statistics for each project (parent tasks only, not subtasks)
     project_stats = {}
     for project in projects:
         stats = db.execute('''
@@ -102,7 +102,7 @@ def index():
                 SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
                 SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed
             FROM tasks 
-            WHERE project_id = ?
+            WHERE project_id = ? AND parent_task_id IS NULL
         ''', (project['id'],)).fetchone()
         project_stats[project['id']] = stats
     
@@ -119,15 +119,22 @@ def project_detail(project_id):
         db.close()
         return redirect(url_for('index'))
     
-    # Get all tasks for this project
+    # Get all tasks for this project, ordered by status (completed last)
     tasks = db.execute('''
         SELECT * FROM tasks 
         WHERE project_id = ? AND parent_task_id IS NULL 
-        ORDER BY created_at DESC
+        ORDER BY 
+            CASE status 
+                WHEN 'pending' THEN 1 
+                WHEN 'in_progress' THEN 2 
+                WHEN 'completed' THEN 3 
+            END,
+            created_at DESC
     ''', (project_id,)).fetchall()
     
     # Get subtasks for each task
     task_subtasks = {}
+    task_progress = {}
     for task in tasks:
         subtasks = db.execute('''
             SELECT * FROM tasks 
@@ -135,8 +142,22 @@ def project_detail(project_id):
             ORDER BY created_at DESC
         ''', (task['id'],)).fetchall()
         task_subtasks[task['id']] = subtasks
+        
+        # Calculate progress based on subtasks
+        if subtasks:
+            total_progress = 0
+            for subtask in subtasks:
+                if subtask['status'] == 'pending':
+                    total_progress += 0
+                elif subtask['status'] == 'in_progress':
+                    total_progress += 50
+                elif subtask['status'] == 'completed':
+                    total_progress += 100
+            task_progress[task['id']] = int(total_progress / len(subtasks))
+        else:
+            task_progress[task['id']] = None
     
-    # Get last comment info for each task
+    # Get last comment info for each task (with time)
     task_last_comments = {}
     for task in tasks:
         last_comment = db.execute('''
@@ -159,6 +180,7 @@ def project_detail(project_id):
                          project=project, 
                          tasks=tasks,
                          task_subtasks=task_subtasks,
+                         task_progress=task_progress,
                          task_last_comments=task_last_comments,
                          project_comments=project_comments)
 

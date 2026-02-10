@@ -18,6 +18,16 @@
             font-size: 0.85rem;
             color: #6c757d;
         }
+        .task-progress {
+            margin-top: 8px;
+        }
+        .progress {
+            height: 8px;
+            background-color: #e9ecef;
+        }
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
         .task-subtasks-section {
             margin-top: 12px;
         }
@@ -300,9 +310,24 @@
                                         Created: {{ task.created_at.split(' ')[0] }}
                                         {% if task.id in task_last_comments %}
                                             {% set last_comment = task_last_comments[task.id] %}
-                                            | Last updated: {{ last_comment.created_at.split(' ')[0] }}
+                                            | Updated: {{ last_comment.created_at }}
                                         {% endif %}
                                     </div>
+                                    
+                                    <!-- Progress Bar (only if task has subtasks) -->
+                                    {% if task_progress[task.id] is not none %}
+                                    <div class="task-progress">
+                                        <div class="progress">
+                                            <div class="progress-bar bg-success" role="progressbar" 
+                                                 style="width: {{ task_progress[task.id] }}%"
+                                                 aria-valuenow="{{ task_progress[task.id] }}" 
+                                                 aria-valuemin="0" 
+                                                 aria-valuemax="100">
+                                            </div>
+                                        </div>
+                                        <small class="text-muted">{{ task_progress[task.id] }}% complete</small>
+                                    </div>
+                                    {% endif %}
                                     
                                     <!-- Subtasks Section -->
                                     {% if task.id in task_subtasks and task_subtasks[task.id] %}
