@@ -748,7 +748,10 @@
 
         function formatMarkdown(text) {
             if (!text) return '';
-            return marked.parse(text);
+            let html = marked.parse(text);
+            // Add target="_blank" to all links
+            html = html.replace(/<a href="/g, '<a target="_blank" rel="noopener noreferrer" href="');
+            return html;
         }
 
         async function toggleComment(commentId) {

@@ -17,14 +17,17 @@ app.config['DATABASE'] = os.path.join(DATA_DIR, 'projects.db')
 # Add markdown filter to Jinja
 @app.template_filter('markdown')
 def markdown_filter(text):
-    """Convert markdown text to HTML"""
+    """Convert markdown text to HTML with links opening in new tabs"""
     if not text:
         return ''
-    return markdown.markdown(
+    html = markdown.markdown(
         text,
         extensions=['fenced_code', 'tables', 'sane_lists'],
         output_format='html5'
     )
+    # Add target="_blank" to all links
+    html = re.sub(r'<a href="', r'<a target="_blank" rel="noopener noreferrer" href="', html)
+    return html
 
 @app.template_filter('strip_markdown')
 def strip_markdown_filter(text):
