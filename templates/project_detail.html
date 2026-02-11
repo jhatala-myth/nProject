@@ -193,6 +193,28 @@
         .status-pending { background-color: #ffc107; }
         .status-in_progress { background-color: #0dcaf0; }
         .status-completed { background-color: #198754; }
+        .nav-tabs {
+            border-bottom: 2px solid #dee2e6;
+        }
+        .nav-tabs .nav-link {
+            color: #6c757d;
+            border: none;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+        .nav-tabs .nav-link:hover {
+            border-color: transparent;
+            color: #0d6efd;
+        }
+        .nav-tabs .nav-link.active {
+            color: #0d6efd;
+            background-color: transparent;
+            border-color: transparent transparent #0d6efd;
+            font-weight: 600;
+        }
+        .tab-content {
+            padding-top: 20px;
+        }
         .formatted-text {
             word-wrap: break-word;
         }
@@ -291,151 +313,51 @@
             <!-- Tasks Section -->
             <div class="col-md-8">
                 <h4 class="mb-3">Tasks</h4>
-                {% if tasks %}
-                    {% for task in tasks %}
-                    <div class="card mb-3 task-item">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div class="flex-grow-1">
-                                    <h5 class="card-title">
-                                        <i class="bi bi-check-circle"></i> {{ task.name }}
-                                        <span class="badge status-{{ task.status }} ms-2">{{ task.status.replace('_', ' ').title() }}</span>
-                                    </h5>
-                                    {% if task.description %}
-                                    <div class="card-text text-muted small formatted-text">{{ task.description | markdown | safe }}</div>
-                                    {% else %}
-                                    <p class="card-text text-muted small">No description</p>
-                                    {% endif %}
-                                    <div class="task-metadata">
-                                        Created: {{ task.created_at.split(' ')[0] }}
-                                        {% if task.id in task_last_comments %}
-                                            {% set last_comment = task_last_comments[task.id] %}
-                                            | Updated: {{ last_comment.created_at }}
-                                        {% endif %}
-                                    </div>
-                                    
-                                    <!-- Progress Bar (only if task has subtasks) -->
-                                    {% if task_progress[task.id] is not none %}
-                                    <div class="task-progress">
-                                        <div class="progress">
-                                            <div class="progress-bar bg-success" role="progressbar" 
-                                                 style="width: {{ task_progress[task.id] }}%"
-                                                 aria-valuenow="{{ task_progress[task.id] }}" 
-                                                 aria-valuemin="0" 
-                                                 aria-valuemax="100">
-                                            </div>
-                                        </div>
-                                        <small class="text-muted">{{ task_progress[task.id] }}% complete</small>
-                                    </div>
-                                    {% endif %}
-                                    
-                                    <!-- Subtasks Section -->
-                                    {% if task.id in task_subtasks and task_subtasks[task.id] %}
-                                    <div class="task-subtasks-section">
-                                        <h6 class="mb-2 mt-2">Subtasks ({{ task_subtasks[task.id]|length }}):</h6>
-                                        {% for subtask in task_subtasks[task.id] %}
-                                        <div class="subtask-bar" data-subtask-id="{{ subtask.id }}">
-                                            <div class="subtask-header" onclick="toggleSubtaskInline({{ subtask.id }})">
-                                                <div class="subtask-title">
-                                                    {{ subtask.name }}
-                                                    <span class="badge status-{{ subtask.status }} ms-2">{{ subtask.status.replace('_', ' ').title() }}</span>
-                                                </div>
-                                                <div style="display: flex; align-items: center;">
-                                                    <div class="subtask-actions">
-                                                        <button class="btn btn-sm btn-outline-secondary" 
-                                                                data-bs-toggle="modal" 
-                                                                data-bs-target="#editSubtaskModal{{ subtask.id }}"
-                                                                onclick="event.stopPropagation()"
-                                                                title="Edit subtask">
-                                                            <i class="bi bi-pencil"></i>
-                                                        </button>
-                                                        <div class="btn-group btn-group-sm">
-                                                            <button class="btn btn-outline-info dropdown-toggle" 
-                                                                    onclick="event.stopPropagation();"
-                                                                    data-bs-toggle="dropdown">
-                                                                <i class="bi bi-gear"></i>
-                                                            </button>
-                                                            <ul class="dropdown-menu">
-                                                                <li><a class="dropdown-item" href="#" onclick="updateTaskStatus({{ subtask.id }}, 'pending')">Mark Pending</a></li>
-                                                                <li><a class="dropdown-item" href="#" onclick="updateTaskStatus({{ subtask.id }}, 'in_progress')">Mark In Progress</a></li>
-                                                                <li><a class="dropdown-item" href="#" onclick="updateTaskStatus({{ subtask.id }}, 'completed')">Mark Completed</a></li>
-                                                            </ul>
-                                                        </div>
-                                                        <button class="btn btn-sm btn-outline-danger" 
-                                                                onclick="event.stopPropagation(); deleteTask({{ subtask.id }})"
-                                                                title="Delete subtask">
-                                                            <i class="bi bi-trash"></i>
-                                                        </button>
-                                                    </div>
-                                                    <i class="bi bi-chevron-right subtask-expand-icon"></i>
-                                                </div>
-                                            </div>
-                                            <div class="subtask-content" id="subtask-content-{{ subtask.id }}">
-                                                {% if subtask.description %}
-                                                <div class="formatted-text small">{{ subtask.description | markdown | safe }}</div>
-                                                {% else %}
-                                                <p class="text-muted small">No description</p>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                        {% endfor %}
-                                    </div>
-                                    {% endif %}
-                                    
-                                    <!-- Last Comment Preview -->
-                                    {% if task.id in task_last_comments %}
-                                        {% set last_comment = task_last_comments[task.id] %}
-                                        <div class="task-last-comment">
-                                            <span class="task-last-comment-author">{{ last_comment.author }}:</span>
-                                            <span class="task-last-comment-text">{{ last_comment.content | strip_markdown | truncate(100) }}</span>
-                                        </div>
-                                    {% endif %}
-                                </div>
-                                <div class="btn-group btn-group-sm">
-                                    <button class="btn btn-outline-secondary" onclick="loadSubtasks({{ task.id }})" 
-                                            data-bs-toggle="collapse" data-bs-target="#subtasks-{{ task.id }}">
-                                        <i class="bi bi-list-nested"></i>
-                                    </button>
-                                    <button class="btn btn-outline-primary" onclick="showAddSubtask({{ task.id }})">
-                                        <i class="bi bi-plus"></i>
-                                    </button>
-                                    <button class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#editTaskModal{{ task.id }}">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <div class="btn-group btn-group-sm">
-                                        <button class="btn btn-outline-info dropdown-toggle" data-bs-toggle="dropdown">
-                                            <i class="bi bi-gear"></i>
-                                        </button>
-                                        <ul class="dropdown-menu">
-                                            <li><a class="dropdown-item" href="#" onclick="updateTaskStatus({{ task.id }}, 'pending')">Mark Pending</a></li>
-                                            <li><a class="dropdown-item" href="#" onclick="updateTaskStatus({{ task.id }}, 'in_progress')">Mark In Progress</a></li>
-                                            <li><a class="dropdown-item" href="#" onclick="updateTaskStatus({{ task.id }}, 'completed')">Mark Completed</a></li>
-                                        </ul>
-                                    </div>
-                                    <button class="btn btn-outline-danger" onclick="deleteTask({{ task.id }})">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </div>
+                
+                <!-- Navigation Tabs -->
+                <ul class="nav nav-tabs" id="taskTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="active-tasks-tab" data-bs-toggle="tab" data-bs-target="#active-tasks" type="button" role="tab">
+                            Active Tasks
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="completed-tasks-tab" data-bs-toggle="tab" data-bs-target="#completed-tasks" type="button" role="tab">
+                            Completed Tasks
+                        </button>
+                    </li>
+                </ul>
+                
+                <!-- Tab Content -->
+                <div class="tab-content" id="taskTabsContent">
+                    <!-- Active Tasks Tab -->
+                    <div class="tab-pane fade show active" id="active-tasks" role="tabpanel">
+                        {% set active_tasks = tasks | selectattr('status', 'in', ['pending', 'in_progress']) | list %}
+                        {% if active_tasks %}
+                            {% for task in active_tasks %}
+                            {% include 'task_card.html' %}
+                            {% endfor %}
+                        {% else %}
+                            <div class="alert alert-info mt-3">
+                                <i class="bi bi-info-circle"></i> No active tasks. All tasks are completed!
                             </div>
-                            
-                            <!-- Subtasks Container -->
-                            <div class="collapse mt-3" id="subtasks-{{ task.id }}">
-                                <div id="subtasks-content-{{ task.id }}">
-                                    <div class="text-center py-2">
-                                        <div class="spinner-border spinner-border-sm" role="status">
-                                            <span class="visually-hidden">Loading...</span>
-                                        </div>
-                                    </div>
-                                </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Completed Tasks Tab -->
+                    <div class="tab-pane fade" id="completed-tasks" role="tabpanel">
+                        {% set completed_tasks = tasks | selectattr('status', 'equalto', 'completed') | list %}
+                        {% if completed_tasks %}
+                            {% for task in completed_tasks %}
+                            {% include 'task_card.html' %}
+                            {% endfor %}
+                        {% else %}
+                            <div class="alert alert-info mt-3">
+                                <i class="bi bi-info-circle"></i> No completed tasks yet.
                             </div>
-                        </div>
+                        {% endif %}
                     </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle"></i> No tasks yet. Add your first task to get started!
-                    </div>
-                {% endif %}
+                </div>
             </div>
 
             <!-- Comments Section -->
