@@ -122,6 +122,9 @@ def project_detail(project_id):
         db.close()
         return redirect(url_for('index'))
     
+    # Get all projects for move task dropdown
+    all_projects = db.execute('SELECT id, name FROM projects ORDER BY name').fetchall()
+    
     # Get all tasks for this project, ordered by status (completed last)
     tasks = db.execute('''
         SELECT * FROM tasks 
@@ -180,7 +183,8 @@ def project_detail(project_id):
     
     db.close()
     return render_template('project_detail.html', 
-                         project=project, 
+                         project=project,
+                         all_projects=all_projects,
                          tasks=tasks,
                          task_subtasks=task_subtasks,
                          task_progress=task_progress,
@@ -361,6 +365,47 @@ def delete_task(task_id):
     if project_id:
         return redirect(url_for('project_detail', project_id=project_id))
     return redirect(url_for('index'))
+
+@app.route('/task/<int:task_id>/move', methods=['POST'])
+def move_task(task_id):
+    """Move task (and all subtasks and comments) to another project"""
+    target_project_id = request.form.get('target_project_id', type=int)
+    
+    if not target_project_id:
+        return jsonify({'success': False, 'error': 'No target project specified'}), 400
+    
+    db = get_db()
+    
+    # Get current task info
+    task = db.execute('SELECT project_id FROM tasks WHERE id = ?', (task_id,)).fetchone()
+    if not task:
+        db.close()
+        return jsonify({'success': False, 'error': 'Task not found'}), 404
+    
+    source_project_id = task['project_id']
+    
+    # Verify target project exists
+    target_project = db.execute('SELECT id FROM projects WHERE id = ?', (target_project_id,)).fetchone()
+    if not target_project:
+        db.close()
+        return jsonify({'success': False, 'error': 'Target project not found'}), 404
+    
+    # Update task's project_id
+    db.execute('UPDATE tasks SET project_id = ? WHERE id = ?', (target_project_id, task_id))
+    
+    # Update all subtasks' project_id
+    db.execute('''
+        UPDATE tasks SET project_id = ? 
+        WHERE parent_task_id = ? OR id IN (
+            SELECT id FROM tasks WHERE parent_task_id = ?
+        )
+    ''', (target_project_id, task_id, task_id))
+    
+    db.commit()
+    db.close()
+    
+    return jsonify({'success': True, 'source_project_id': source_project_id, 
+                   'target_project_id': target_project_id})
 
 @app.route('/comment/<int:comment_id>')
 def get_comment(comment_id):

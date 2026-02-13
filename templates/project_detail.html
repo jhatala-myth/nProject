@@ -533,6 +533,41 @@
         </div>
     </div>
     
+    <!-- Move Task Modal -->
+    <div class="modal fade" id="moveTaskModal{{ task.id }}" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Move Task to Another Project</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Task:</strong> {{ task.name }}</p>
+                    {% if task.id in task_subtasks and task_subtasks[task.id] %}
+                    <p class="text-muted small">This will also move {{ task_subtasks[task.id]|length }} subtask(s) and all comments.</p>
+                    {% endif %}
+                    <div class="mb-3">
+                        <label for="targetProject{{ task.id }}" class="form-label">Move to Project *</label>
+                        <select class="form-select" id="targetProject{{ task.id }}" required>
+                            <option value="">Select a project...</option>
+                            {% for proj in all_projects %}
+                                {% if proj.id != project.id %}
+                                <option value="{{ proj.id }}">{{ proj.name }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-warning" onclick="moveTask({{ task.id }})">
+                        <i class="bi bi-arrow-right-circle"></i> Move Task
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <!-- Edit Subtask Modals for this task -->
     {% if task.id in task_subtasks %}
         {% for subtask in task_subtasks[task.id] %}
@@ -890,6 +925,41 @@
                 const form = document.getElementById('deleteTaskForm');
                 form.action = `/task/${taskId}/delete`;
                 form.submit();
+            }
+        }
+
+        async function moveTask(taskId) {
+            const selectElement = document.getElementById(`targetProject${taskId}`);
+            const targetProjectId = selectElement.value;
+            
+            if (!targetProjectId) {
+                alert('Please select a target project');
+                return;
+            }
+            
+            try {
+                const formData = new FormData();
+                formData.append('target_project_id', targetProjectId);
+                
+                const response = await fetch(`/task/${taskId}/move`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Close modal
+                    bootstrap.Modal.getInstance(document.getElementById(`moveTaskModal${taskId}`)).hide();
+                    // Show success message and redirect
+                    alert('Task moved successfully!');
+                    location.reload();
+                } else {
+                    alert('Error moving task: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error moving task:', error);
+                alert('Error moving task');
             }
         }
 
