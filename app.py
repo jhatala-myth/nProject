@@ -1,12 +1,15 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, redirect, url_for, jsonify, send_file, flash
 from datetime import datetime
 import sqlite3
 import os
 import base64
 import markdown
 import re
+import json
+import io
 
 app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
 # Ensure data directory exists
 DATA_DIR = '/app/data' if os.path.exists('/app') else './data'
@@ -477,6 +480,156 @@ def add_comment():
         return jsonify({'success': True})
     
     return jsonify({'success': False}), 400
+
+@app.route('/backup')
+def backup():
+    """Export all data as a JSON backup file"""
+    db = get_db()
+    
+    projects = [dict(row) for row in db.execute('SELECT * FROM projects').fetchall()]
+    tasks    = [dict(row) for row in db.execute('SELECT * FROM tasks').fetchall()]
+    comments = [dict(row) for row in db.execute('SELECT * FROM comments').fetchall()]
+    
+    db.close()
+    
+    backup_data = {
+        'backup_version': '1.0',
+        'created_at': datetime.now().isoformat(),
+        'projects': projects,
+        'tasks': tasks,
+        'comments': comments
+    }
+    
+    filename = f"project_manager_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    buf = io.BytesIO(json.dumps(backup_data, indent=2, ensure_ascii=False).encode('utf-8'))
+    buf.seek(0)
+    
+    return send_file(
+        buf,
+        mimetype='application/json',
+        as_attachment=True,
+        download_name=filename
+    )
+
+@app.route('/restore', methods=['POST'])
+def restore():
+    """Restore data from a JSON backup file"""
+    if 'backup_file' not in request.files:
+        flash('No file selected', 'danger')
+        return redirect(url_for('index'))
+    
+    file = request.files['backup_file']
+    if not file or not file.filename.endswith('.json'):
+        flash('Please upload a valid .json backup file', 'danger')
+        return redirect(url_for('index'))
+    
+    try:
+        backup_data = json.loads(file.read().decode('utf-8'))
+        
+        if 'backup_version' not in backup_data:
+            flash('Invalid backup file format', 'danger')
+            return redirect(url_for('index'))
+        
+        mode = request.form.get('restore_mode', 'merge')
+        db = get_db()
+        
+        if mode == 'replace':
+            # Wipe existing data
+            db.execute('DELETE FROM comments')
+            db.execute('DELETE FROM tasks')
+            db.execute('DELETE FROM projects')
+            db.execute("DELETE FROM sqlite_sequence WHERE name IN ('projects','tasks','comments')")
+        
+        if mode == 'replace':
+            # Insert with original IDs
+            for p in backup_data.get('projects', []):
+                db.execute('''
+                    INSERT OR REPLACE INTO projects (id, name, description, status, icon_data, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (p['id'], p['name'], p.get('description'), p.get('status', 'active'),
+                      p.get('icon_data'), p.get('created_at')))
+            
+            for t in backup_data.get('tasks', []):
+                db.execute('''
+                    INSERT OR REPLACE INTO tasks (id, project_id, parent_task_id, name, description, status, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (t['id'], t['project_id'], t.get('parent_task_id'), t['name'],
+                      t.get('description'), t.get('status', 'pending'), t.get('created_at')))
+            
+            for c in backup_data.get('comments', []):
+                db.execute('''
+                    INSERT OR REPLACE INTO comments (id, entity_type, entity_id, content, author, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (c['id'], c['entity_type'], c['entity_id'], c['content'],
+                      c.get('author', 'Unknown'), c.get('created_at')))
+        
+        else:  # merge: insert without IDs, letting SQLite auto-assign new ones
+            # Build mapping old_id → new_id for projects and tasks
+            proj_map = {}
+            for p in backup_data.get('projects', []):
+                cur = db.execute('''
+                    INSERT INTO projects (name, description, status, icon_data, created_at)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (p['name'], p.get('description'), p.get('status', 'active'),
+                      p.get('icon_data'), p.get('created_at')))
+                proj_map[p['id']] = cur.lastrowid
+            
+            task_map = {}
+            # First pass: insert top-level tasks
+            for t in backup_data.get('tasks', []):
+                if t.get('parent_task_id') is None:
+                    new_proj_id = proj_map.get(t['project_id'], t['project_id'])
+                    cur = db.execute('''
+                        INSERT INTO tasks (project_id, parent_task_id, name, description, status, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ''', (new_proj_id, None, t['name'], t.get('description'),
+                          t.get('status', 'pending'), t.get('created_at')))
+                    task_map[t['id']] = cur.lastrowid
+            
+            # Second pass: insert subtasks
+            for t in backup_data.get('tasks', []):
+                if t.get('parent_task_id') is not None:
+                    new_proj_id = proj_map.get(t['project_id'], t['project_id'])
+                    new_parent_id = task_map.get(t['parent_task_id'], t['parent_task_id'])
+                    cur = db.execute('''
+                        INSERT INTO tasks (project_id, parent_task_id, name, description, status, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ''', (new_proj_id, new_parent_id, t['name'], t.get('description'),
+                          t.get('status', 'pending'), t.get('created_at')))
+                    task_map[t['id']] = cur.lastrowid
+            
+            for c in backup_data.get('comments', []):
+                # Remap entity_id if the entity was a task we just created
+                entity_id = c['entity_id']
+                if c['entity_type'] == 'task':
+                    entity_id = task_map.get(c['entity_id'], c['entity_id'])
+                elif c['entity_type'] == 'project':
+                    entity_id = proj_map.get(c['entity_id'], c['entity_id'])
+                
+                db.execute('''
+                    INSERT INTO comments (entity_type, entity_id, content, author, created_at)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (c['entity_type'], entity_id, c['content'],
+                      c.get('author', 'Unknown'), c.get('created_at')))
+        
+        db.commit()
+        db.close()
+        
+        counts = {
+            'projects': len(backup_data.get('projects', [])),
+            'tasks': len(backup_data.get('tasks', [])),
+            'comments': len(backup_data.get('comments', []))
+        }
+        mode_label = 'replaced' if mode == 'replace' else 'merged'
+        flash(f"Backup {mode_label} successfully: {counts['projects']} projects, {counts['tasks']} tasks, {counts['comments']} comments.", 'success')
+    
+    except json.JSONDecodeError:
+        flash('Invalid JSON file – could not parse backup', 'danger')
+    except Exception as e:
+        flash(f'Restore failed: {str(e)}', 'danger')
+    
+    return redirect(url_for('index'))
+
 
 if __name__ == '__main__':
     init_db()
